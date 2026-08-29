@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GqlBody</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#171a21;
+    --panel-2:#1c202a;
+    --border:#2a2e38;
+    --text:#e6e9ef;
+    --muted:#8a8f9c;
+    --query:#5b8def;
+    --query-soft:#16233d;
+    --mutation:#e2985a;
+    --mutation-soft:#3a2b18;
+    --mono: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:820px;margin:0 auto;}
+  h1{font-size:19px;font-weight:600;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  textarea{
+    width:100%;
+    min-height:200px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:12px;
+    resize:vertical;
+  }
+  textarea:focus{outline:none;border-color:var(--query);}
+  .row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;}
+  .btn{
+    background:var(--query);
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn:hover{opacity:0.9;}
+  .btn.secondary{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:5px 10px;
+    font-size:12px;
+    font-weight:500;
+  }
+  .btn.secondary:hover{border-color:var(--query);color:var(--query);}
+  .btn.small{padding:5px 10px;font-size:11.5px;}
+  input[type=file]{
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .error{color:#f3777a;font-size:13px;margin-top:10px;display:none;white-space:pre-wrap;}
+  .summary{
+    margin-top:22px;
+    display:flex;
+    gap:16px;
+    font-size:12.5px;
+    color:var(--muted);
+    display:none;
+  }
+  .summary b{color:var(--text);}
+  .filter-row{display:none;margin-top:16px;gap:8px;}
+  .filter-btn{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--muted);
+    border-radius:20px;
+    padding:5px 14px;
+    font-size:12px;
+    cursor:pointer;
+  }
+  .filter-btn.active{color:var(--text);border-color:var(--query);}
+  .search{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:5px 14px;
+    font-size:12px;
+    color:var(--text);
+  }
+  .search::placeholder{color:var(--muted);}
+  .search:focus{outline:none;border-color:var(--query);}
+  #results{margin-top:18px;}
+  .op-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .op-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:11px 14px;
+    cursor:pointer;
+  }
+  .op-head:hover{background:var(--panel-2);}
+  .op-left{display:flex;align-items:center;gap:10px;}
+  .op-tag{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    padding:2px 8px;
+    border-radius:4px;
+  }
+  .op-tag.query{background:var(--query-soft);color:var(--query);}
+  .op-tag.mutation{background:var(--mutation-soft);color:var(--mutation);}
+  .op-name{font-family:var(--mono);font-size:13.5px;font-weight:600;}
+  .chevron{color:var(--muted);font-size:11px;transition:transform 0.15s;}
+  .op-card.open .chevron{transform:rotate(90deg);}
+  .op-body{display:none;padding:0 14px 14px;}
+  .op-card.open .op-body{display:block;}
+  .field{
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    margin-top:10px;
+    overflow:hidden;
+  }
+  .field-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 10px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--border);
+  }
+  .field-label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:700;}
+  pre{
+    margin:0;
+    padding:11px;
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.5;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 0;display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Schema → Postman</h1>
+  <p class="sub">Paste your schema.gql. Every Query and Mutation gets split out with its own ready-to-copy GraphQL query and variables — no server, no API calls, runs entirely in this page.</p>
+
+  <textarea id="input" placeholder="Paste schema.gql contents here..."></textarea><br>
+  <div class="row">
+    <button class="btn" onclick="parseSchema()">Parse Schema</button>
+    <input type="file" id="fileInput" accept=".gql,.graphql,.txt">
+    <button class="btn secondary" id="downloadBtn" style="display:none" onclick="downloadCollection()">Download full Postman collection</button>
+  </div>
+  <div class="error" id="error"></div>
+
+  <div class="summary" id="summary"></div>
+  <div class="filter-row" id="filterRow">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" data-filter="query" onclick="setFilter('query')">Queries</button>
+    <button class="filter-btn" data-filter="mutation" onclick="setFilter('mutation')">Mutations</button>
+    <input class="search" id="search" placeholder="Filter by name..." oninput="renderResults()">
+  </div>
+
+  <div id="results"></div>
+  <div class="empty" id="empty">No operations matched.</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Lightweight GraphQL SDL parser (no external dependencies)
+// ---------------------------------------------------------------------------
+const BUILTIN_SCALARS = new Set(['Int', 'Float', 'String', 'Boolean', 'ID']);
+
+function stripComments(sdl) {
+  return sdl.replace(/"""[\s\S]*?"""/g, '').replace(/#.*$/gm, '');
+}
+
+function parseFields(body) {
+  const fields = [];
+  const fieldRegex = /(\w+)\s*(\(([^)]*)\))?\s*:\s*([\w[\]!]+)/g;
+  let m;
+  while ((m = fieldRegex.exec(body)) !== null) {
+    const [, fieldName, , argsStr, returnType] = m;
+    const args = [];
+    if (argsStr) {
+      const argParts = argsStr.split(',').map((a) => a.trim()).filter(Boolean);
+      for (const part of argParts) {
+        const argMatch = part.match(/^(\w+)\s*:\s*([\w[\]!]+)/);
+        if (argMatch) args.push({ name: argMatch[1], type: argMatch[2] });
+      }
+    }
+    fields.push({ name: fieldName, args, returnType });
+  }
+  return fields;
+}
+
+function parseSDL(sdl) {
+  const clean = stripComments(sdl);
+  const types = {};
+
+  const typeRegex = /(type|input)\s+(\w+)\s*{([^}]*)}/g;
+  let m;
+  while ((m = typeRegex.exec(clean)) !== null) {
+    const [, kind, name, body] = m;
+    types[name] = { kind, fields: parseFields(body) };
+  }
+
+  const enumRegex = /enum\s+(\w+)\s*{([^}]*)}/g;
+  while ((m = enumRegex.exec(clean)) !== null) {
+    const [, name, body] = m;
+    const values = body.split('\n').map((l) => l.trim()).filter(Boolean);
+    types[name] = { kind: 'enum', values };
+  }
+
+  return types;
+}
+
+function baseTypeName(typeStr) {
+  return typeStr.replace(/[[\]!]/g, '');
+}
+
+function sampleValueForArg(argType, types, depth) {
+  depth = depth || 0;
+  const named = baseTypeName(argType);
+  if (argType.includes('[')) return [sampleValueForArg(named, types, depth)];
+  switch (named) {
+    case 'Int': return 1;
+    case 'Float': return 1.0;
+    case 'Boolean': return true;
+    case 'ID': return 'REPLACE_ME_ID';
+    case 'String': return 'REPLACE_ME';
+  }
+  const def = types[named];
+  if (!def) return 'REPLACE_ME';
+  if (def.kind === 'enum') return def.values[0] || 'REPLACE_ME';
+  if (def.kind === 'input' && depth < 2) {
+    const obj = {};
+    for (const f of def.fields) obj[f.name] = sampleValueForArg(f.returnType, types, depth + 1);
+    return obj;
+  }
+  return 'REPLACE_ME';
+}
+
+function buildSelectionSet(typeStr, types, depth, maxDepth, visited) {
+  const named = baseTypeName(typeStr);
+  if (BUILTIN_SCALARS.has(named)) return '';
+  const def = types[named];
+  if (!def || def.kind === 'enum') return '';
+  if (def.kind !== 'type' && def.kind !== 'input') return '';
+  if (depth > maxDepth || visited.has(named)) return '';
+
+  const nextVisited = new Set(visited);
+  nextVisited.add(named);
+
+  const lines = [];
+  for (const field of def.fields) {
+    const fieldNamed = baseTypeName(field.returnType);
+    if (BUILTIN_SCALARS.has(fieldNamed) || !types[fieldNamed] || types[fieldNamed].kind === 'enum') {
+      lines.push('  '.repeat(depth + 1) + field.name);
+    } else if (depth < maxDepth) {
+      const sub = buildSelectionSet(field.returnType, types, depth + 1, maxDepth, nextVisited);
+      if (sub) lines.push('  '.repeat(depth + 1) + field.name + ' {\n' + sub + '\n' + '  '.repeat(depth + 1) + '}');
+    }
+  }
+  if (lines.length === 0) lines.push('  '.repeat(depth + 1) + '__typename');
+  return lines.join('\n');
+}
+
+function buildOperation(fieldName, field, operationKind, types) {
+  const varDefs = field.args.map((a) => '$' + a.name + ': ' + a.type).join(', ');
+  const argUsage = field.args.map((a) => a.name + ': $' + a.name).join(', ');
+
+  const opName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+  const keyword = operationKind.toLowerCase();
+  const header = keyword + ' ' + opName + (varDefs ? '(' + varDefs + ')' : '') + ' {';
+
+  const selection = buildSelectionSet(field.returnType, types, 0, 2, new Set());
+  const namedReturn = baseTypeName(field.returnType);
+  const needsSelection = types[namedReturn] && types[namedReturn].kind === 'type';
+
+  const call = '  ' + fieldName + (argUsage ? '(' + argUsage + ')' : '');
+  const body = needsSelection ? call + ' {\n' + selection + '\n  }' : call;
+  const document = header + '\n' + body + '\n}';
+
+  const variables = {};
+  for (const a of field.args) variables[a.name] = sampleValueForArg(a.type, types);
+
+  return { document, variables };
+}
+
+function generateOperations(sdl) {
+  const types = parseSDL(sdl);
+  const results = [];
+  if (types.Query) {
+    for (const field of types.Query.fields) {
+      const { document, variables } = buildOperation(field.name, field, 'Query', types);
+      results.push({ name: field.name, kind: 'query', document, variables });
+    }
+  }
+  if (types.Mutation) {
+    for (const field of types.Mutation.fields) {
+      const { document, variables } = buildOperation(field.name, field, 'Mutation', types);
+      results.push({ name: field.name, kind: 'mutation', document, variables });
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+let allOperations = [];
+let currentFilter = 'all';
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    document.getElementById('input').value = evt.target.result;
+    parseSchema();
+  };
+  reader.readAsText(file);
+});
+
+function parseSchema() {
+  const sdl = document.getElementById('input').value;
+  const errorEl = document.getElementById('error');
+  errorEl.style.display = 'none';
+
+  if (!sdl.trim()) {
+    errorEl.textContent = 'Paste a schema.gql first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    allOperations = generateOperations(sdl);
+  } catch (e) {
+    errorEl.textContent = 'Could not parse schema: ' + e.message;
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  if (allOperations.length === 0) {
+    errorEl.textContent = 'No Query or Mutation fields found. Check that your schema has "type Query { ... }" / "type Mutation { ... }" blocks.';
+    errorEl.style.display = 'block';
+    document.getElementById('summary').style.display = 'none';
+    document.getElementById('filterRow').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'none';
+    document.getElementById('results').innerHTML = '';
+    return;
+  }
+
+  const queryCount = allOperations.filter((o) => o.kind === 'query').length;
+  const mutationCount = allOperations.filter((o) => o.kind === 'mutation').length;
+
+  const summary = document.getElementById('summary');
+  summary.innerHTML = '<span><b>' + allOperations.length + '</b> operations</span><span><b>' + queryCount + '</b> queries</span><span><b>' + mutationCount + '</b> mutations</span>';
+  summary.style.display = 'flex';
+
+  document.getElementById('filterRow').style.display = 'flex';
+  document.getElementById('downloadBtn').style.display = 'inline-block';
+  currentFilter = 'all';
+  document.querySelectorAll('.filter-btn').forEach((b) => b.classList.toggle('active', b.dataset.filter === 'all'));
+  document.getElementById('search').value = '';
+
+  renderResults();
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach((b) => b.classList.toggle('active', b.dataset.filter === filter));
+  renderResults();
+}
+
+function copyText(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => (btn.textContent = original), 1100);
+  });
+}
+
+function toggleCard(card) {
+  card.classList.toggle('open');
+}
+
+function renderResults() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const filtered = allOperations.filter((op) => {
+    const matchesFilter = currentFilter === 'all' || op.kind === currentFilter;
+    const matchesSearch = !search || op.name.toLowerCase().includes(search);
+    return matchesFilter && matchesSearch;
+  });
+
+  const resultsEl = document.getElementById('results');
+  const emptyEl = document.getElementById('empty');
+  resultsEl.innerHTML = '';
+
+  if (filtered.length === 0) {
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  for (const op of filtered) {
+    const card = document.createElement('div');
+    card.className = 'op-card';
+
+    const head = document.createElement('div');
+    head.className = 'op-head';
+    head.onclick = () => toggleCard(card);
+
+    const left = document.createElement('div');
+    left.className = 'op-left';
+    const tag = document.createElement('span');
+    tag.className = 'op-tag ' + op.kind;
+    tag.textContent = op.kind;
+    const name = document.createElement('span');
+    name.className = 'op-name';
+    name.textContent = op.name;
+    left.appendChild(tag);
+    left.appendChild(name);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'chevron';
+    chevron.textContent = '▸';
+
+    head.appendChild(left);
+    head.appendChild(chevron);
+
+    const body = document.createElement('div');
+    body.className = 'op-body';
+
+    const varsText = JSON.stringify(op.variables, null, 2);
+    const itemJson = JSON.stringify({
+      name: op.name,
+      request: {
+        method: 'POST',
+        header: [{ key: 'Content-Type', value: 'application/json' }],
+        body: { mode: 'graphql', graphql: { query: op.document, variables: varsText } },
+        url: { raw: '{{baseUrl}}/graphql', host: ['{{baseUrl}}/graphql'] },
+        description: ''
+      },
+      response: []
+    }, null, 2);
+
+    body.appendChild(makeField('GraphQL Query', op.document));
+    body.appendChild(makeField('Variables', varsText));
+    body.appendChild(makeField('Full Postman Item JSON', itemJson));
+
+    card.appendChild(head);
+    card.appendChild(body);
+    resultsEl.appendChild(card);
+  }
+}
+
+function makeField(label, content) {
+  const field = document.createElement('div');
+  field.className = 'field';
+
+  const head = document.createElement('div');
+  head.className = 'field-head';
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'field-label';
+  labelEl.textContent = label;
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn secondary small';
+  copyBtn.textContent = 'Copy';
+  copyBtn.onclick = (e) => { e.stopPropagation(); copyText(copyBtn, content); };
+
+  head.appendChild(labelEl);
+  head.appendChild(copyBtn);
+
+  const pre = document.createElement('pre');
+  pre.textContent = content;
+
+  field.appendChild(head);
+  field.appendChild(pre);
+  return field;
+}
+
+function downloadCollection() {
+  const items = allOperations.map((op) => ({
+    name: op.name,
+    request: {
+      method: 'POST',
+      header: [{ key: 'Content-Type', value: 'application/json' }],
+      body: { mode: 'graphql', graphql: { query: op.document, variables: JSON.stringify(op.variables, null, 2) } },
+      url: { raw: '{{baseUrl}}/graphql', host: ['{{baseUrl}}/graphql'] },
+      description: ''
+    },
+    response: []
+  }));
+
+  const collection = {
+    info: { name: 'Generated from schema.gql', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+    auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{token}}', type: 'string' }] },
+    variable: [{ key: 'baseUrl', value: 'http://localhost:3000' }, { key: 'token', value: '' }],
+    item: [
+      { name: 'Queries', item: items.filter((_, i) => allOperations[i].kind === 'query') },
+      { name: 'Mutations', item: items.filter((_, i) => allOperations[i].kind === 'mutation') }
+    ]
+  };
+
+  const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'postman-collection.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
